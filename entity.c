@@ -52,22 +52,106 @@
 #include <stdio.h>
 #include <string.h>
 #include "simulator.h"
+#define WAIT_MESS 0
+#define WAIT_ACK 1
 
 /**** A ENTITY ****/
 
-void A_init(int window_size) { }
+struct A_send{
+    int inital_state;
+    int seqNum;
+    struct pkt l_packet;
+    float estimate_rtt;
+} send_A;
 
-void A_output(struct msg message) { }
+void A_init(int window_size) { 
+    send_A.inital_state = WAIT_MESS;
+    send_A.inital_state =0;
+    send_A.estimate_rtt = 10;
+}
 
-void A_input(struct pkt packet) { }
+int g_checksum(struct pkt *packet){
+    int checksum = 0;
+    checksum += packet->seqnum;
+    checksum += packet-> acknum;
+    for(int i =0; i < 20; i++){
+        checksum += packet->payload[i];
+    }
+    return checksum;
+};
+void A_output(struct msg message) { 
+    if ( send_A.inital_state != WAIT_MESS){
+        printf(" A_output: Not ACK yet, drop the message", message.data);
+        return;
+    }
+    printf("  A_output: send packet: %s\n", message.data);
+    struct pkt packet;
+    packet.seqnum = send_A.seqNum;
+    memmove(packet.payload, message.data, 32);
+    packet.checksum = g_checksum(&packet);
+    send_A.l_packet = packet;
+    send_A.inital_state = WAIT_ACK;
+    tolayer3_A(packet);
+    starttimer_A(send_A.estimate_rtt);
+    send_A.seqNum = !send_A.seqNum; 
+}
 
-void A_timerinterrupt() { }
+void A_input(struct pkt packet) {
+     if ( send_A.inital_state != WAIT_ACK){
+        printf(" A_input: NoACK");
+        return;
+    }
+    if (packet.checksum != g_checksum(&packet)){
+        printf(" A_input: packet corrupted. Drop. \n");
+        return;
+    }
+    if(packet.acknum != send_A.seqNum){
+        printf("A_input: Not the expected ACK. DROP.\n");
+        return;
+    }
+    printf("A_input: acked.");
+    stoptimer_A(0);
+    //send_A.seqNum = 1- send_A.seqNum;
+    send_A.inital_state = WAIT_MESS;
+ }
+
+void A_timerinterrupt() { 
+    if(send_A.inital_state !=WAIT_ACK){
+        printf(" A_timerinterrupt(): not waiting for ACK");
+        return;
+    }
+    printf(" A_timerinterrupt: resend last packet: %s", send_A.l_packet.payload);
+    tolayer3_A(send_A.l_packet);
+    starttimer_A(send_A.estimate_rtt);
+}
 
 
 /**** B ENTITY ****/
 
+struct B_recv{
+    int seqNum;
+} recv_B;
+
 void B_init(int window_size) { }
 
-void B_input(struct pkt packet) { }
+void B_input(struct pkt packet) { 
+    if(packet.checksum != g_check(&packet)){
+        printf("B_input: packet was corrupted. Send NAK.");
+        send_ack(1,1- recv_B.seqNum);
+        return;
+    }
+    if(packet.seqnum != recv_B.seqNum){
+        printf("B_input: Not the expected seq. Send NAK.");
+        //
+        return;
+    }
+    printf("B_input: recv message: %s", packet.payload);
+    printf("B_input: send ACK.");
+    send__ack(1,recv_B.seqNum);
+    tolayer5_B(packet.payload);
+    recv_B.seqNum = 1-recv_B.seqNum;
+}
 
-void B_timerinterrupt() { }
+void B_timerinterrupt(void) {
+    printf("B_timerinterrupt: Ignore.");
+ }
