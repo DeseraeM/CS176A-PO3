@@ -54,19 +54,25 @@
 #include "simulator.h"
 #define WAIT_MESS 0
 #define WAIT_ACK 1
+#define SIZE_WINDOW 8
+#define BUFFERSIZE 100
 
 /**** A ENTITY ****/
 
 struct A_send{
     int inital_state;
-    int seqNum;
-    struct pkt l_packet;
+    struct pkt l_packet[BUFFERSIZE];
+    //struct pkt l_packet[SIZE_WINDOW];
     float estimate_rtt;
+    int window_size;
+    int nextSeq;
+    int oldest;
 } send_A;
 
 void A_init(int window_size) { 
     send_A.inital_state = WAIT_MESS;
-    send_A.inital_state =0;
+    send_A.oldest = 0;
+    send_A.nextSeq = 0;
     send_A.estimate_rtt = 10;
 }
 
@@ -80,48 +86,53 @@ int g_checksum(struct pkt *packet){
     return checksum;
 };
 void A_output(struct msg message) { 
-    if ( send_A.inital_state != WAIT_MESS){
-        printf(" A_output: Not ACK yet, drop the message", message.data);
+    if( (send_A.nextSeq - send_A.oldest) >= SIZE_WINDOW){
+        printf("A_output: Window is full");
         return;
     }
     printf("  A_output: send packet: %s\n", message.data);
     struct pkt packet;
-    packet.seqnum = send_A.seqNum;
+    packet.seqnum = send_A.nextSeq;
     memmove(packet.payload, message.data, 32);
     packet.checksum = g_checksum(&packet);
-    send_A.l_packet = packet;
+    send_A.l_packet[send_A.nextSeq % SIZE_WINDOW] = packet;
     send_A.inital_state = WAIT_ACK;
     tolayer3_A(packet);
-    starttimer_A(send_A.estimate_rtt);
-    send_A.seqNum = !send_A.seqNum; 
+    if(send_A.oldest == send_A.nextSeq){
+            starttimer_A(send_A.estimate_rtt);
+    }
+    send_A.nextSeq += 1; 
 }
 
 void A_input(struct pkt packet) {
-     if ( send_A.inital_state != WAIT_ACK){
-        printf(" A_input: NoACK");
-        return;
-    }
     if (packet.checksum != g_checksum(&packet)){
-        printf(" A_input: packet corrupted. Drop. \n");
+    printf(" A_input: packet corrupted. Drop. \n");
+    return;
+    }
+    if( (packet.acknum>= send_A.oldest) && (packet.acknum < send_A.nextSeq)){
+        printf("A_output: ACK is vaild ");
+        }
+    if( (packet.acknum< send_A.oldest) || (packet.acknum >= send_A.nextSeq)){
+        printf("A_output: ACK is invaild ");
         return;
     }
-    if(packet.acknum != send_A.seqNum){
-        printf("A_input: Not the expected ACK. DROP.\n");
-        return;
-    }
+
+    send_A.oldest = packet.acknum + 1;
     printf("A_input: acked.");
-    stoptimer_A(0);
+    if(send_A.oldest == send_A.nextSeq){
+        stoptimer_A();
+    }
+    else{
+        starttimer_A(send_A.estimate_rtt);
+    }
     //send_A.seqNum = 1- send_A.seqNum;
-    send_A.inital_state = WAIT_MESS;
+    //send_A.inital_state = WAIT_MESS;
  }
 
 void A_timerinterrupt() { 
-    if(send_A.inital_state !=WAIT_ACK){
-        printf(" A_timerinterrupt(): not waiting for ACK");
-        return;
+    for(int i = send_A.oldest; i < send_A.nextSeq; i++){
+        tolayer3_A(send_A.l_packet[i % SIZE_WINDOW]);
     }
-    printf(" A_timerinterrupt: resend last packet: %s", send_A.l_packet.payload);
-    tolayer3_A(send_A.l_packet);
     starttimer_A(send_A.estimate_rtt);
 }
 
@@ -132,26 +143,35 @@ struct B_recv{
     int seqNum;
 } recv_B;
 
+
 void B_init(int window_size) {
     recv_B.seqNum = 0;
+ }
+ int send_ACK(int ack){
+    struct pkt packet;
+    packet.acknum = ack;
+    packet.checksum = g_checksum(&packet);
+    tolayer3_B(packet);
+    
  }
 
 void B_input(struct pkt packet) { 
     if(packet.checksum != g_checksum(&packet)){
-        printf("B_input: packet was corrupted. Send NAK.");
-        send_ack(1,1- recv_B.seqNum);
+        printf("B_input: packet was corrupted. Send ACK for the last packeted.", recv_B.seqNum);
+        send_ACK(recv_B.seqNum - 1);
         return;
     }
     if(packet.seqnum != recv_B.seqNum){
-        printf("B_input: Not the expected seq. Send NAK.");
-        //
+        printf("B_input: Not the expected seq.");
         return;
     }
     printf("B_input: recv message: %s", packet.payload);
     printf("B_input: send ACK.");
-    send_ack(1,recv_B.seqNum);
-    //tolayer5_B(packet.payload);
-    recv_B.seqNum = 1-recv_B.seqNum;
+    send_ACK(recv_B.seqNum);
+    struct msg message;
+    memmove(message.data,packet.payload, 32);   
+    tolayer5_B(message);
+    recv_B.seqNum += 1;
 }
 
 void B_timerinterrupt(void) {
