@@ -80,7 +80,7 @@ int g_checksum(struct pkt *packet){
     int checksum = 0;
     checksum += packet->seqnum;
     checksum += packet-> acknum;
-    for(int i =0; i < 20; i++){
+    for(int i =0; i < 32; i++){
         checksum += packet->payload[i];
     }
     return checksum;
@@ -141,6 +141,7 @@ void A_timerinterrupt() {
 
 struct B_recv{
     int seqNum;
+    int payload;
 } recv_B;
 
 
@@ -150,7 +151,10 @@ void B_init(int window_size) {
  int send_ACK(int ack){
     struct pkt packet;
     packet.acknum = ack;
+    packet.seqnum = 0;
+    memset(packet.payload, 0, 32);
     packet.checksum = g_checksum(&packet);
+
     tolayer3_B(packet);
     
  }
@@ -163,14 +167,16 @@ void B_input(struct pkt packet) {
     }
     if(packet.seqnum != recv_B.seqNum){
         printf("B_input: Not the expected seq.");
+        send_ACK(recv_B.seqNum - 1);
         return;
     }
     printf("B_input: recv message: %s", packet.payload);
-    printf("B_input: send ACK.");
-    send_ACK(recv_B.seqNum);
     struct msg message;
-    memmove(message.data,packet.payload, 32);   
+    memmove(message.data,packet.payload, 32);  
     tolayer5_B(message);
+
+    printf("B_input: send ACK.");
+    send_ACK(recv_B.seqNum); 
     recv_B.seqNum += 1;
 }
 
