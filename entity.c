@@ -132,10 +132,12 @@ struct B_recv{
     int seqNum;
 } recv_B;
 
-void B_init(int window_size) { }
+void B_init(int window_size) {
+    recv_B.seqNum = 0;
+ }
 
 void B_input(struct pkt packet) { 
-    if(packet.checksum != g_check(&packet)){
+    if(packet.checksum != g_checksum(&packet)){
         printf("B_input: packet was corrupted. Send NAK.");
         send_ack(1,1- recv_B.seqNum);
         return;
@@ -147,8 +149,8 @@ void B_input(struct pkt packet) {
     }
     printf("B_input: recv message: %s", packet.payload);
     printf("B_input: send ACK.");
-    send__ack(1,recv_B.seqNum);
-    tolayer5_B(packet.payload);
+    send_ack(1,recv_B.seqNum);
+    //tolayer5_B(packet.payload);
     recv_B.seqNum = 1-recv_B.seqNum;
 }
 
