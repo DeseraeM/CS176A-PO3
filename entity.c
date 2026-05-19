@@ -73,7 +73,7 @@ void A_init(int window_size) {
     send_A.oldest = 0;
     send_A.nextSeq = 0;
     send_A.estimate_rtt = 10;
-    send_A.window_size = 8;
+    send_A.window_size = window_size;
 }
 
 int g_checksum(struct pkt *packet){
