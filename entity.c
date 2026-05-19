@@ -153,13 +153,12 @@ void B_init(int window_size) {
 
  void send_ACK(int ack){
     struct pkt packet;
-    packet.acknum - ack;
+    packet.acknum = ack;
     packet.seqnum = 0;
     packet.length = 0;
     memset(packet.payload, 0, 32);
     packet.checksum = g_checksum(&packet);
     tolayer3_B(packet);
-    
  }
 
 void B_input(struct pkt packet) { 
