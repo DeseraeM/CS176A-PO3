@@ -172,11 +172,11 @@ void B_input(struct pkt packet) {
         send_ACK(recv_B.seqNum - 1);
         return;
     }
-    printf("B_input: recv message: %s", packet.payload);
+    printf("B_input: recv message: %.*s\n", packet.length, packet.payload); 
 
     struct msg message;
     message.length = packet.length;
-    memset(message.data, 0, 20);
+    memset(message.data, 0, 30);
     memmove(message.data,packet.payload, packet.length);  
     tolayer5_B(message);
 
