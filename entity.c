@@ -93,6 +93,7 @@ void A_output(struct msg message) {
     printf("  A_output: send packet: %s\n", message.data);
     struct pkt packet;
     packet.seqnum = send_A.nextSeq;
+    packet.length = message.length;
     memmove(packet.payload, message.data, 32);
     packet.checksum = g_checksum(&packet);
     send_A.l_packet[send_A.nextSeq % send_A.window_size] = packet;
@@ -173,6 +174,7 @@ void B_input(struct pkt packet) {
     printf("B_input: recv message: %s", packet.payload);
     struct msg message;
     memmove(message.data,packet.payload, 32);  
+    message.length = packet.length;
     tolayer5_B(message);
 
     printf("B_input: send ACK.");
