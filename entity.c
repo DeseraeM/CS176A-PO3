@@ -91,7 +91,7 @@ void A_output(struct msg message) {
         printf("A_output: Window is full");
         return;
     }
-    printf("  A_output: send packet: %s\n", message.data);
+    printf("  A_output: send packet: seq=%d\n", send_A.nextSeq);
     struct pkt packet;
     packet.seqnum = send_A.nextSeq;
     packet.acknum =0;
