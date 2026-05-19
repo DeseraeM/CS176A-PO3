@@ -88,10 +88,10 @@ int g_checksum(struct pkt *packet){
 };
 void A_output(struct msg message) { 
     if( (send_A.nextSeq - send_A.oldest) >= send_A.window_size){
-        printf("A_output: Window is full");
+        printf(" Window is full");
         return;
     }
-    printf("  A_output: send packet: seq=%d\n", send_A.nextSeq);
+    printf("send packet: seq=%d\n", send_A.nextSeq);
     struct pkt packet;
     packet.seqnum = send_A.nextSeq;
     packet.acknum =0;
@@ -111,14 +111,14 @@ void A_output(struct msg message) {
 
 void A_input(struct pkt packet) {
     if (packet.checksum != g_checksum(&packet)){
-    printf(" A_input: packet corrupted. Drop. \n");
+    printf("A-packet corrupted. Drop. \n");
     return;
     }
     if( (packet.acknum< send_A.oldest) || (packet.acknum >= send_A.nextSeq)){
-        printf("A_output: ACK is invaild", packet.acknum, send_A.oldest, send_A.nextSeq);
+        printf("A- ACK is invaild", packet.acknum, send_A.oldest, send_A.nextSeq);
         return;
     }
-    printf("A_input: Cumulative ack %d received.", packet.acknum);
+    printf("A- Cumulative ack %d received.", packet.acknum);
     send_A.oldest = packet.acknum +1;
 
     if(send_A.oldest == send_A.nextSeq){
@@ -165,7 +165,7 @@ void B_init(int window_size) {
 void B_input(struct pkt packet) { 
     if(packet.checksum != g_checksum(&packet)){
         if(recv_B.seqNum > 0) send_ACK(recv_B.seqNum - 1);
-        printf("B_input: packet was corrupted. Send ACK for the last packeted.", recv_B.seqNum-1);
+        printf("B- packet was corrupted.", recv_B.seqNum-1);
         return;
     }
     if(packet.seqnum != recv_B.seqNum){
@@ -179,8 +179,6 @@ void B_input(struct pkt packet) {
     memset(message.data, 0, 32);
     memmove(message.data,packet.payload, packet.length);  
     tolayer5_B(message);
-
-    printf("B_input: send ACK.");
     send_ACK(recv_B.seqNum); 
     recv_B.seqNum += 1;
 }
