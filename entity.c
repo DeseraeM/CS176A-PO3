@@ -80,7 +80,7 @@ int g_checksum(struct pkt *packet){
     int checksum = 0;
     checksum += packet->seqnum;
     checksum += packet-> acknum;
-    //checksum += packet->length;
+    checksum += packet->length;
     for(int i =0; i < packet->length; i++){
         checksum += (unsigned char) packet->payload[i];
     }
@@ -125,6 +125,7 @@ void A_input(struct pkt packet) {
         stoptimer_A();
     }
     else{
+        stoptimer_A(); 
         starttimer_A(send_A.estimate_rtt);
     }
     //send_A.seqNum = 1- send_A.seqNum;
