@@ -128,8 +128,6 @@ void A_input(struct pkt packet) {
         stoptimer_A(); 
         starttimer_A(send_A.estimate_rtt);
     }
-    //send_A.seqNum = 1- send_A.seqNum;
-    //send_A.inital_state = WAIT_MESS;
  }
 
 void A_timerinterrupt() { 
@@ -172,7 +170,6 @@ void B_input(struct pkt packet) {
     }
     if(packet.seqnum != recv_B.seqNum){
         if(recv_B.seqNum > 0) send_ACK(recv_B.seqNum - 1);
-        printf("B_input: Not the expected seq.", recv_B.seqNum, packet.seqnum, recv_B.seqNum-1);
         return;
     }
     printf("B_input: recv message: seq=%d\n", packet.seqnum); 
@@ -188,6 +185,4 @@ void B_input(struct pkt packet) {
     recv_B.seqNum += 1;
 }
 
-void B_timerinterrupt(void) {
-    printf("B_timerinterrupt: Ignore.");
- }
+void B_timerinterrupt(void) {}
