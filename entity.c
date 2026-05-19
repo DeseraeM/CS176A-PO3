@@ -54,8 +54,7 @@
 #include "simulator.h"
 #define WAIT_MESS 0
 #define WAIT_ACK 1
-#define SIZE_WINDOW 8
-#define BUFFERSIZE 100
+#define BUFFERSIZE 1000
 
 /**** A ENTITY ****/
 
@@ -74,6 +73,7 @@ void A_init(int window_size) {
     send_A.oldest = 0;
     send_A.nextSeq = 0;
     send_A.estimate_rtt = 10;
+    send_A.window_size = 8;
 }
 
 int g_checksum(struct pkt *packet){
@@ -81,12 +81,12 @@ int g_checksum(struct pkt *packet){
     checksum += packet->seqnum;
     checksum += packet-> acknum;
     for(int i =0; i < 32; i++){
-        checksum += packet->payload[i];
+        checksum += (unsigned char) packet->payload[i];
     }
     return checksum;
 };
 void A_output(struct msg message) { 
-    if( (send_A.nextSeq - send_A.oldest) >= SIZE_WINDOW){
+    if( (send_A.nextSeq - send_A.oldest) >= send_A.window_size){
         printf("A_output: Window is full");
         return;
     }
@@ -95,7 +95,7 @@ void A_output(struct msg message) {
     packet.seqnum = send_A.nextSeq;
     memmove(packet.payload, message.data, 32);
     packet.checksum = g_checksum(&packet);
-    send_A.l_packet[send_A.nextSeq % SIZE_WINDOW] = packet;
+    send_A.l_packet[send_A.nextSeq % send_A.window_size] = packet;
     send_A.inital_state = WAIT_ACK;
     tolayer3_A(packet);
     if(send_A.oldest == send_A.nextSeq){
@@ -131,7 +131,7 @@ void A_input(struct pkt packet) {
 
 void A_timerinterrupt() { 
     for(int i = send_A.oldest; i < send_A.nextSeq; i++){
-        tolayer3_A(send_A.l_packet[i % SIZE_WINDOW]);
+        tolayer3_A(send_A.l_packet[i % send_A.window_size]);
     }
     starttimer_A(send_A.estimate_rtt);
 }
