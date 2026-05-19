@@ -80,8 +80,8 @@ int g_checksum(struct pkt *packet){
     int checksum = 0;
     checksum += packet->seqnum;
     checksum += packet-> acknum;
-    checksum += packet->length;
-    for(int i =0; i < 32; i++){
+    //checksum += packet->length;
+    for(int i =0; i < packet->length; i++){
         checksum += (unsigned char) packet->payload[i];
     }
     return checksum;
@@ -94,8 +94,10 @@ void A_output(struct msg message) {
     printf("  A_output: send packet: %s\n", message.data);
     struct pkt packet;
     packet.seqnum = send_A.nextSeq;
+    packet.acknum =0;
     packet.length = message.length;
-    memmove(packet.payload, message.data, 32);
+    memset(packet.payload,0,32);
+    memmove(packet.payload, message.data, message.length);
     packet.checksum = g_checksum(&packet);
 
     send_A.l_packet[send_A.nextSeq % BUFFERSIZE] = packet;
@@ -151,10 +153,10 @@ void B_init(int window_size) {
 
  void send_ACK(int ack){
     struct pkt packet;
-    packet.acknum = ack;
+    packet.acknum - ack;
     packet.seqnum = 0;
     packet.length = 0;
-    memset(packet.payload, 0, 20);
+    memset(packet.payload, 0, 32);
     packet.checksum = g_checksum(&packet);
     tolayer3_B(packet);
     
