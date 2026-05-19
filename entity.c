@@ -80,6 +80,7 @@ int g_checksum(struct pkt *packet){
     int checksum = 0;
     checksum += packet->seqnum;
     checksum += packet-> acknum;
+    checksum += packet->length;
     for(int i =0; i < 32; i++){
         checksum += (unsigned char) packet->payload[i];
     }
@@ -96,7 +97,8 @@ void A_output(struct msg message) {
     packet.length = message.length;
     memmove(packet.payload, message.data, 32);
     packet.checksum = g_checksum(&packet);
-    send_A.l_packet[send_A.nextSeq % send_A.window_size] = packet;
+
+    send_A.l_packet[send_A.nextSeq % BUFFERSIZE] = packet;
     send_A.inital_state = WAIT_ACK;
     tolayer3_A(packet);
     if(send_A.oldest == send_A.nextSeq){
@@ -110,16 +112,13 @@ void A_input(struct pkt packet) {
     printf(" A_input: packet corrupted. Drop. \n");
     return;
     }
-    if( (packet.acknum>= send_A.oldest) && (packet.acknum < send_A.nextSeq)){
-        printf("A_output: ACK is vaild ");
-        }
     if( (packet.acknum< send_A.oldest) || (packet.acknum >= send_A.nextSeq)){
-        printf("A_output: ACK is invaild ");
+        printf("A_output: ACK is invaild", packet.acknum, send_A.oldest, send_A.nextSeq);
         return;
     }
+    printf("A_input: Cumulative ack %d received.", packet.acknum);
+    send_A.oldest = packet.acknum +1;
 
-    send_A.oldest = packet.acknum + 1;
-    printf("A_input: acked.");
     if(send_A.oldest == send_A.nextSeq){
         stoptimer_A();
     }
@@ -132,7 +131,7 @@ void A_input(struct pkt packet) {
 
 void A_timerinterrupt() { 
     for(int i = send_A.oldest; i < send_A.nextSeq; i++){
-        tolayer3_A(send_A.l_packet[i % send_A.window_size]);
+        tolayer3_A(send_A.l_packet[i % BUFFERSIZE]);
     }
     starttimer_A(send_A.estimate_rtt);
 }
@@ -149,32 +148,35 @@ struct B_recv{
 void B_init(int window_size) {
     recv_B.seqNum = 0;
  }
- int send_ACK(int ack){
+
+ void send_ACK(int ack){
     struct pkt packet;
     packet.acknum = ack;
     packet.seqnum = 0;
-    memset(packet.payload, 0, 32);
+    packet.length = 0;
+    memset(packet.payload, 0, 20);
     packet.checksum = g_checksum(&packet);
-
     tolayer3_B(packet);
     
  }
 
 void B_input(struct pkt packet) { 
     if(packet.checksum != g_checksum(&packet)){
-        printf("B_input: packet was corrupted. Send ACK for the last packeted.", recv_B.seqNum);
+        printf("B_input: packet was corrupted. Send ACK for the last packeted.", recv_B.seqNum-1);
         send_ACK(recv_B.seqNum - 1);
         return;
     }
     if(packet.seqnum != recv_B.seqNum){
-        printf("B_input: Not the expected seq.");
+        printf("B_input: Not the expected seq.", recv_B.seqNum, packet.seqnum, recv_B.seqNum-1);
         send_ACK(recv_B.seqNum - 1);
         return;
     }
     printf("B_input: recv message: %s", packet.payload);
+
     struct msg message;
-    memmove(message.data,packet.payload, 32);  
     message.length = packet.length;
+    memset(message.data, 0, 20);
+    memmove(message.data,packet.payload, packet.length);  
     tolayer5_B(message);
 
     printf("B_input: send ACK.");
