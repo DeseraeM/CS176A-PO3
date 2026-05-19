@@ -81,7 +81,7 @@ int g_checksum(struct pkt *packet){
     checksum += packet->seqnum;
     checksum += packet-> acknum;
     checksum += packet->length;
-    for(int i =0; i < packet->length; i++){
+    for(int i =0; i < 32; i++){
         checksum += (unsigned char) packet->payload[i];
     }
     return checksum;
@@ -134,7 +134,9 @@ void A_input(struct pkt packet) {
 
 void A_timerinterrupt() { 
     for(int i = send_A.oldest; i < send_A.nextSeq; i++){
-        tolayer3_A(send_A.l_packet[i % BUFFERSIZE]);
+        if(i % BUFFERSIZE >= 0 && i % BUFFERSIZE < BUFFERSIZE){
+            tolayer3_A(send_A.l_packet[i % BUFFERSIZE]);
+        }
     }
     starttimer_A(send_A.estimate_rtt);
 }
@@ -173,7 +175,7 @@ void B_input(struct pkt packet) {
         printf("B_input: Not the expected seq.", recv_B.seqNum, packet.seqnum, recv_B.seqNum-1);
         return;
     }
-    printf("B_input: recv message: %.*s\n", packet.length, packet.payload); 
+    printf("B_input: recv message: seq=%d\n", packet.seqnum); 
 
     struct msg message;
     message.length = packet.length;
