@@ -163,20 +163,20 @@ void B_init(int window_size) {
 
 void B_input(struct pkt packet) { 
     if(packet.checksum != g_checksum(&packet)){
+        if(recv_B.seqNum > 0) send_ACK(recv_B.seqNum - 1);
         printf("B_input: packet was corrupted. Send ACK for the last packeted.", recv_B.seqNum-1);
-        send_ACK(recv_B.seqNum - 1);
         return;
     }
     if(packet.seqnum != recv_B.seqNum){
+        if(recv_B.seqNum > 0) send_ACK(recv_B.seqNum - 1);
         printf("B_input: Not the expected seq.", recv_B.seqNum, packet.seqnum, recv_B.seqNum-1);
-        send_ACK(recv_B.seqNum - 1);
         return;
     }
     printf("B_input: recv message: %.*s\n", packet.length, packet.payload); 
 
     struct msg message;
     message.length = packet.length;
-    memset(message.data, 0, 30);
+    memset(message.data, 0, 32);
     memmove(message.data,packet.payload, packet.length);  
     tolayer5_B(message);
 
